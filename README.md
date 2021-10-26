@@ -1,5 +1,11 @@
 # Attempt
 
+## Installation
+
+```
+npm install @riim/attempt --save
+```
+
 ## Example
 
 ```js
@@ -11,7 +17,7 @@ await attempt(
 	{
 		maxRetries: 10,
 		timeout: interval10s,
-		timeoutAfterError: interval1s
+		timeoutAfterError: interval1s,
 		onError: (err) => {
 			console.error('Error', err.message);
 		},
@@ -53,3 +59,21 @@ await attempt(
 - `onTimeout` - Обработчик прерывания попытки по таймауту. По умолчанию - null.
 - `onRetry` - Запускается непосредственно перед повтором (то есть после дополнительной задержки (если она есть)). Первый аргумент - ошибка предыдущей попытки (в том числе `AttemptTimeoutError`, если попытка прервана по таймауту), второй - количество оставшихся попыток. По умолчанию - null.
 - `defaultValue` - Используется если ни одна попытка не окажется успешной. Если равен undefined, то будет брошена последняя ошибка (в том числе `AttemptTimeoutError`). При любом другом значении оно будет возвращено. По умолчанию - undefined.
+
+## Configuration
+
+Используемые по умолчанию значения можно изменить:
+```js
+import { configure } from '@riim/attempt';
+import { interval15s, interval1s } from '@riim/interval';
+
+configure({
+	maxRetries: 2,
+	timeout: interval15s,
+	timeoutAfterError: interval1s,
+	onError: null,
+	onTimeout: null,
+	onRetry: null,
+	defaultValue: undefined
+});
+```
