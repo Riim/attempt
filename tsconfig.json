@@ -1,0 +1,31 @@
+{
+	"compilerOptions": {
+		"alwaysStrict": true,
+		"declaration": true,
+		"experimentalDecorators": true,
+		"lib": ["ES2019", "DOM"],
+		"module": "CommonJS",
+		"moduleResolution": "Node",
+		"newLine": "lf",
+		"noFallthroughCasesInSwitch": true,
+		"noImplicitAny": true,
+		"noImplicitOverride": true,
+		"noImplicitReturns": true,
+		"noImplicitThis": true,
+		"noPropertyAccessFromIndexSignature": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": false,
+		"outDir": "dist",
+		"preserveConstEnums": true,
+		"resolveJsonModule": true,
+		"strictBindCallApply": true,
+		"strictFunctionTypes": true,
+		"strictNullChecks": true,
+		"strictPropertyInitialization": false,
+		"suppressImplicitAnyIndexErrors": true,
+		"target": "ES2017"
+	},
+	"files": [
+		"src/attempt.ts"
+	]
+}
