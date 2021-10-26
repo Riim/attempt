@@ -5,16 +5,16 @@ export class AttemptTimeoutError extends Error {}
 
 export const config: {
 	maxRetries: number | undefined;
-	maxTimeout: number | undefined;
-	timeoutBeforeRetry: number | undefined;
+	timeout: number | undefined;
+	timeoutAfterError: number | undefined;
 	onError: ((err: any, retryNumber: number) => number | void) | null;
 	onTimeout: (() => void) | null;
 	onRetry: ((err: any, leftRetries: number) => void) | null;
 	defaultValue: any;
 } = {
 	maxRetries: 2,
-	maxTimeout: interval15s,
-	timeoutBeforeRetry: interval1s,
+	timeout: interval15s,
+	timeoutAfterError: interval1s,
 	onError: null,
 	onTimeout: null,
 	onRetry: null,
@@ -28,12 +28,12 @@ export function configure(options: TOptions) {
 	return config;
 }
 
-const checkTimeoutBeforeRetry = (timeoutBeforeRetry: number) => {
-	if (!Number.isInteger(timeoutBeforeRetry)) {
+const checkTimeoutAfterError = (timeoutAfterError: number) => {
+	if (!Number.isInteger(timeoutAfterError)) {
 		throw TypeError('Timeout before retry must be integer');
 	}
 
-	if (timeoutBeforeRetry < 0) {
+	if (timeoutAfterError < 0) {
 		throw TypeError('Timeout before retry must be greater than or equal to zero');
 	}
 };
@@ -49,22 +49,22 @@ export function attempt<T>(fn: () => Promise<T>, options?: TOptions): Promise<T>
 		throw TypeError('Maximum number of retries must be greater than or equal to zero');
 	}
 
-	let maxTimeout = options?.maxTimeout ?? config.maxTimeout;
+	let timeout = options?.timeout ?? config.timeout;
 
-	if (maxTimeout !== undefined) {
-		if (!Number.isInteger(maxTimeout)) {
-			throw TypeError('Max timeout of attempt must be integer');
+	if (timeout !== undefined) {
+		if (!Number.isInteger(timeout)) {
+			throw TypeError('Timeout of attempt must be integer');
 		}
 
-		if (maxTimeout <= 0) {
-			throw TypeError('Max timeout of attempt must be greater than zero');
+		if (timeout < 0) {
+			throw TypeError('Timeout of attempt must be greater than or equal to zero');
 		}
 	}
 
-	let timeoutBeforeRetry = options?.timeoutBeforeRetry ?? config.timeoutBeforeRetry;
+	let timeoutAfterError = options?.timeoutAfterError ?? config.timeoutAfterError;
 
-	if (timeoutBeforeRetry !== undefined) {
-		checkTimeoutBeforeRetry(timeoutBeforeRetry);
+	if (timeoutAfterError !== undefined) {
+		checkTimeoutAfterError(timeoutAfterError);
 	}
 
 	let onError = options?.onError ?? config.onError;
@@ -78,18 +78,18 @@ export function attempt<T>(fn: () => Promise<T>, options?: TOptions): Promise<T>
 			}
 		} else {
 			if (onError) {
-				let timeoutBeforeRetry_ = onError(err, maxRetries! - leftRetries);
+				let timeoutAfterError_ = onError(err, maxRetries! - leftRetries);
 
-				if (timeoutBeforeRetry_ !== undefined) {
-					checkTimeoutBeforeRetry(timeoutBeforeRetry_);
-					timeoutBeforeRetry = timeoutBeforeRetry_;
+				if (timeoutAfterError_ !== undefined) {
+					checkTimeoutAfterError(timeoutAfterError_);
+					timeoutAfterError = timeoutAfterError_;
 				}
 			}
 		}
 
 		if (leftRetries != 0) {
-			return timeoutBeforeRetry !== undefined && timeoutBeforeRetry != 0
-				? delay(timeoutBeforeRetry).then(() => retry(err, leftRetries - 1))
+			return timeoutAfterError !== undefined && timeoutAfterError != 0
+				? delay(timeoutAfterError).then(() => retry(err, leftRetries - 1))
 				: retry(err, leftRetries - 1);
 		}
 
@@ -102,7 +102,7 @@ export function attempt<T>(fn: () => Promise<T>, options?: TOptions): Promise<T>
 		throw err;
 	};
 
-	if (maxTimeout !== undefined && maxTimeout != 0) {
+	if (timeout !== undefined && timeout != 0) {
 		return (function attempt_(err: any, leftRetries): Promise<T> {
 			let loaded = false;
 			let timeouted = false;
@@ -146,7 +146,7 @@ export function attempt<T>(fn: () => Promise<T>, options?: TOptions): Promise<T>
 						);
 					}
 				),
-				delay(maxTimeout).then(() => {
+				delay(timeout).then(() => {
 					timeouted = true;
 
 					if (loaded) {
