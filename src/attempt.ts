@@ -93,10 +93,8 @@ export function attempt<T>(fn: () => Promise<T>, options?: TOptions): Promise<T>
 				: retry(err, leftRetries - 1);
 		}
 
-		if (options?.defaultValue !== undefined) {
-			return options.defaultValue;
-		} else if (config.defaultValue !== undefined) {
-			return config.defaultValue;
+		if (options?.defaultValue !== undefined || config.defaultValue !== undefined) {
+			return Promise.resolve(options?.defaultValue !== undefined ? options.defaultValue : config.defaultValue);
 		}
 
 		throw err;

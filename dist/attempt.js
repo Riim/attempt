@@ -73,11 +73,8 @@ function attempt(fn, options) {
                 ? delay_1.delay(timeoutAfterError).then(() => retry(err, leftRetries - 1))
                 : retry(err, leftRetries - 1);
         }
-        if ((options === null || options === void 0 ? void 0 : options.defaultValue) !== undefined) {
-            return options.defaultValue;
-        }
-        else if (exports.config.defaultValue !== undefined) {
-            return exports.config.defaultValue;
+        if ((options === null || options === void 0 ? void 0 : options.defaultValue) !== undefined || exports.config.defaultValue !== undefined) {
+            return Promise.resolve((options === null || options === void 0 ? void 0 : options.defaultValue) !== undefined ? options.defaultValue : exports.config.defaultValue);
         }
         throw err;
     };
