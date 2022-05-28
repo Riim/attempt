@@ -10,15 +10,13 @@ export const config: {
 	onError: ((err: any, retryNumber: number) => number | void) | null;
 	onTimeout: (() => void) | null;
 	onRetry: ((err: any, leftRetries: number) => void) | null;
-	defaultValue: any;
 } = {
 	maxRetries: 2,
 	timeout: interval15s,
 	timeoutAfterError: interval1s,
 	onError: null,
 	onTimeout: null,
-	onRetry: null,
-	defaultValue: undefined
+	onRetry: null
 };
 
 export type TOptions = Partial<typeof config>;
@@ -91,10 +89,6 @@ export function attempt<T>(fn: () => Promise<T>, options?: TOptions): Promise<T>
 			return timeoutAfterError !== undefined && timeoutAfterError != 0
 				? delay(timeoutAfterError).then(() => retry(err, leftRetries - 1))
 				: retry(err, leftRetries - 1);
-		}
-
-		if (options?.defaultValue !== undefined || config.defaultValue !== undefined) {
-			return Promise.resolve(options?.defaultValue !== undefined ? options.defaultValue : config.defaultValue);
 		}
 
 		throw err;

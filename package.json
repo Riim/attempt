@@ -21,6 +21,6 @@
   "homepage": "https://github.com/Riim/attempt#readme",
   "dependencies": {
     "@riim/delay": "^1.0.1",
-    "@riim/interval": "^1.0.1"
+    "@riim/interval": "1.0.1"
   }
 }

@@ -12,8 +12,7 @@ exports.config = {
     timeoutAfterError: interval_1.interval1s,
     onError: null,
     onTimeout: null,
-    onRetry: null,
-    defaultValue: undefined
+    onRetry: null
 };
 function configure(options) {
     Object.assign(exports.config, options);
@@ -70,11 +69,8 @@ function attempt(fn, options) {
         }
         if (leftRetries != 0) {
             return timeoutAfterError !== undefined && timeoutAfterError != 0
-                ? delay_1.delay(timeoutAfterError).then(() => retry(err, leftRetries - 1))
+                ? (0, delay_1.delay)(timeoutAfterError).then(() => retry(err, leftRetries - 1))
                 : retry(err, leftRetries - 1);
-        }
-        if ((options === null || options === void 0 ? void 0 : options.defaultValue) !== undefined || exports.config.defaultValue !== undefined) {
-            return Promise.resolve((options === null || options === void 0 ? void 0 : options.defaultValue) !== undefined ? options.defaultValue : exports.config.defaultValue);
         }
         throw err;
     };
@@ -96,7 +92,7 @@ function attempt(fn, options) {
                     if (timeouted) {
                         return (ready ||
                             (function _() {
-                                return delay_1.delay(interval_1.interval30s).then(() => ready || _());
+                                return (0, delay_1.delay)(interval_1.interval30s).then(() => ready || _());
                             })());
                     }
                     return onRejected(err, leftRetries, attempt_).then((result) => {
@@ -107,12 +103,12 @@ function attempt(fn, options) {
                         throw err;
                     });
                 }),
-                delay_1.delay(timeout).then(() => {
+                (0, delay_1.delay)(timeout).then(() => {
                     timeouted = true;
                     if (loaded) {
                         return (ready ||
                             (function _() {
-                                return delay_1.delay(interval_1.interval30s).then(() => ready || _());
+                                return (0, delay_1.delay)(interval_1.interval30s).then(() => ready || _());
                             })());
                     }
                     return onRejected(new AttemptTimeoutError(), leftRetries, attempt_).then((result) => {

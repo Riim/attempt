@@ -27,7 +27,6 @@ await attempt(
 		onRetry: (err, leftRetries) => {
 			console.warn('!!! RETRY', leftRetries);
 		}
-		defaultValue: null
 	}
 );
 ```
@@ -58,7 +57,6 @@ await attempt(
 По умолчанию - null.
 - `onTimeout` - Обработчик прерывания попытки по таймауту. По умолчанию - null.
 - `onRetry` - Запускается непосредственно перед повтором (то есть после дополнительной задержки (если она есть)). Первый аргумент - ошибка предыдущей попытки (в том числе `AttemptTimeoutError`, если попытка прервана по таймауту), второй - количество оставшихся попыток. По умолчанию - null.
-- `defaultValue` - Используется если ни одна попытка не окажется успешной. Если равен undefined, то будет брошена последняя ошибка (в том числе `AttemptTimeoutError`). При любом другом значении оно будет возвращено. По умолчанию - undefined.
 
 ## Configuration
 
@@ -73,7 +71,6 @@ configure({
 	timeoutAfterError: interval1s,
 	onError: null,
 	onTimeout: null,
-	onRetry: null,
-	defaultValue: undefined
+	onRetry: null
 });
 ```
