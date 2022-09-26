@@ -1,30 +1,12 @@
 import { delay } from '@riim/delay';
-import { interval15s, interval1s, interval30s } from '@riim/interval';
+import { config, configure, TOptions } from './config';
+import { AttemptTimeoutError } from './lib/AttemptTimeoutError';
+import { identity } from './lib/identity';
+import { noop } from './lib/noop';
+import { throwIt } from './lib/throwIt';
 
-export class AttemptTimeoutError extends Error {}
-
-export const config: {
-	maxRetries: number | undefined;
-	timeout: number | undefined;
-	timeoutAfterError: number | undefined;
-	onError: ((err: any, retryNumber: number) => number | void) | null;
-	onTimeout: (() => void) | null;
-	onRetry: ((err: any, leftRetries: number) => void) | null;
-} = {
-	maxRetries: 2,
-	timeout: interval15s,
-	timeoutAfterError: interval1s,
-	onError: null,
-	onTimeout: null,
-	onRetry: null
-};
-
-export type TOptions = Partial<typeof config>;
-
-export function configure(options: TOptions) {
-	Object.assign(config, options);
-	return config;
-}
+export { AttemptTimeoutError };
+export { TOptions, config, configure };
 
 const checkTimeoutAfterError = (timeoutAfterError: number) => {
 	if (!Number.isInteger(timeoutAfterError)) {
@@ -65,11 +47,18 @@ export function attempt<T>(fn: () => Promise<T>, options?: TOptions): Promise<T>
 		checkTimeoutAfterError(timeoutAfterError);
 	}
 
+	let discardTimeoutedAttempts = options?.discardTimeoutedAttempts ?? config.discardTimeoutedAttempts;
 	let onError = options?.onError ?? config.onError;
 	let onTimeout = options?.onTimeout ?? config.onTimeout;
 	let onRetry = options?.onRetry ?? config.onRetry;
 
-	let onRejected = (err: any, leftRetries: number, retry: (err: any, leftRetries: number) => Promise<T>) => {
+	let ready = false;
+
+	let onRejected = (
+		err: any,
+		leftRetries: number,
+		retry: (err: any, leftRetries: number) => Promise<T>
+	) => {
 		if (err instanceof AttemptTimeoutError) {
 			if (onTimeout) {
 				onTimeout();
@@ -91,76 +80,53 @@ export function attempt<T>(fn: () => Promise<T>, options?: TOptions): Promise<T>
 				: retry(err, leftRetries - 1);
 		}
 
+		ready = true;
+
 		throw err;
 	};
 
 	if (timeout !== undefined && timeout != 0) {
 		return (function attempt_(err: any, leftRetries): Promise<T> {
-			let loaded = false;
+			let completed = false;
 			let timeouted = false;
-			let ready = false;
 
 			if (onRetry && err !== null) {
 				onRetry(err, leftRetries);
 			}
 
-			return Promise.race([
+			return Promise.race<T>([
 				fn().then(
 					(result) => {
-						loaded = true;
+						completed = true;
+
+						if (timeouted && discardTimeoutedAttempts) {
+							return ready ? null : new Promise(noop);
+						}
+
 						ready = true;
 
 						return result;
 					},
 					(err) => {
-						loaded = true;
+						completed = true;
 
 						if (timeouted) {
-							return (
-								ready ||
-								(function _(): any {
-									return delay(interval30s).then(() => ready || _());
-								})()
-							);
+							return ready ? (null as any) : new Promise(noop);
 						}
 
-						return onRejected(err, leftRetries, attempt_).then(
-							(result: T) => {
-								ready = true;
-
-								return result;
-							},
-							(err: any) => {
-								ready = true;
-
-								throw err;
-							}
-						);
+						return onRejected(err, leftRetries, attempt_).then(identity, throwIt);
 					}
 				),
 				delay(timeout).then(() => {
 					timeouted = true;
 
-					if (loaded) {
-						return (
-							ready ||
-							(function _(): any {
-								return delay(interval30s).then(() => ready || _());
-							})()
-						);
+					if (completed) {
+						return ready ? (null as any) : new Promise(noop);
 					}
 
 					return onRejected(new AttemptTimeoutError(), leftRetries, attempt_).then(
-						(result: T) => {
-							ready = true;
-
-							return result;
-						},
-						(err: any) => {
-							ready = true;
-
-							throw err;
-						}
+						identity,
+						throwIt
 					);
 				})
 			]);
