@@ -1,18 +1,18 @@
-import { interval1s } from '@riim/interval';
-
 export const config: {
-	maxRetries: number | undefined;
-	timeout: number | undefined;
-	timeoutAfterError: number | undefined;
+	maxRetries: number;
+	timeout: number;
+	timeoutAfterError: number;
 	discardTimeoutedAttempts: boolean;
+	onAttempt: ((attemptNumber: number) => number | void) | null;
 	onError: ((err: any, retryNumber: number) => number | void) | null;
 	onTimeout: (() => void) | null;
 	onRetry: ((err: any, leftRetries: number) => void) | null;
 } = {
-	maxRetries: 2,
-	timeout: 0,
-	timeoutAfterError: interval1s,
+	maxRetries: 0,
+	timeout: -1,
+	timeoutAfterError: 0,
 	discardTimeoutedAttempts: false,
+	onAttempt: null,
 	onError: null,
 	onTimeout: null,
 	onRetry: null
