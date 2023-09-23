@@ -10,14 +10,14 @@ npm install @riim/attempt --save
 
 ```js
 import { attempt } from '@riim/attempt';
-import { interval10s, interval1s } from '@riim/interval';
+import { duration } from '@riim/duration';
 
 await attempt(
 	() => client.getAuth(),
 	{
 		maxRetries: 10,
-		timeout: interval10s,
-		timeoutAfterError: interval1s,
+		timeout: duration.s10,
+		timeoutAfterError: duration.s1,
 		onError: (err) => {
 			console.error('Error', err.message);
 		},
@@ -39,7 +39,7 @@ await attempt(
 - `onError` - Обработчик ошибки. Первый аргумент - ошибка, второй - номер повтора. При первом срабатывании номер повтора будет 0 (первая попытка - не повтор). Может возвращать число миллисекунд до повтора переопределяя `timeoutAfterError`. Таким образом можно гибко управлять стратегией изменения `timeoutAfterError`:
 ```js
 import { attempt } from '@riim/attempt';
-import { interval5s } from '@riim/interval';
+import { duration } from '@riim/duration';
 
 await attempt(
 	() => client.getAuth(),
@@ -47,7 +47,7 @@ await attempt(
 		onError: (err, retryNumber) => {
 			console.error('Error', err.message);
 
-			return retryNumber * interval5s;
+			return retryNumber * duration.s5;
 		}
 	}
 );
