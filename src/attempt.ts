@@ -1,95 +1,78 @@
 import { delay } from '@riim/delay';
-import { config, configure, TOptions } from './config';
+import { TOptions, config, configure } from './config';
 import { AttemptTimeoutError } from './lib/AttemptTimeoutError';
 import { endlessPromise } from './lib/endlessPromise';
-import { identity } from './lib/identity';
-import { throwIt } from './lib/throwIt';
 
 export { AttemptTimeoutError };
-export { TOptions, config, configure };
+export { type TOptions, config, configure };
 export { series } from './series';
 
-const checkTimeoutAfterError = (timeoutAfterError: number) => {
-	if (!Number.isInteger(timeoutAfterError)) {
-		throw TypeError('Timeout after error must be integer');
+function checkParam(name: string, value: number, minValue: number) {
+	if (!Number.isInteger(value)) {
+		throw TypeError(`${name} must be integer`);
 	}
-
-	if (timeoutAfterError < 0) {
-		throw TypeError('Timeout after error must be greater than or equal to 0');
+	if (value < minValue) {
+		throw TypeError(`${name} must be greater than or equal to ${minValue}`);
 	}
-};
+}
 
-const checkTimeout = (timeout: number) => {
-	if (!Number.isInteger(timeout)) {
-		throw TypeError('Timeout of attempt must be integer');
-	}
+function checkTimeout(timeout: number) {
+	checkParam('Timeout', timeout, -1);
+}
 
-	if (timeout < -1) {
-		throw TypeError('Timeout of attempt must be greater than or equal to -1');
-	}
-};
+function checkTimeoutAfterError(timeoutAfterError: number) {
+	checkParam('TimeoutAfterError', timeoutAfterError, 0);
+}
 
-export function attempt<T>(fn: () => Promise<T>, options?: TOptions): Promise<T> {
-	let maxRetries = options?.maxRetries ?? config.maxRetries;
-
-	if (!Number.isInteger(maxRetries)) {
-		throw TypeError('Maximum number of retries must be integer');
-	}
-
-	if (maxRetries < 0) {
-		throw TypeError('Maximum number of retries must be greater than or equal to 0');
-	}
-
-	let timeout = options?.timeout ?? config.timeout;
-
-	if (timeout !== undefined) {
-		checkTimeout(timeout);
-	}
-
-	let timeoutAfterError = options?.timeoutAfterError ?? config.timeoutAfterError;
-
-	if (timeoutAfterError !== undefined) {
-		checkTimeoutAfterError(timeoutAfterError);
-	}
-
-	let discardTimeoutedAttempts =
-		options?.discardTimeoutedAttempts ?? config.discardTimeoutedAttempts;
-	let onAttempt = options?.onAttempt ?? config.onAttempt;
-	let onError = options?.onError ?? config.onError;
-	let onTimeout = options?.onTimeout ?? config.onTimeout;
-	let onRetry = options?.onRetry ?? config.onRetry;
+export function attempt<T>(
+	fn: () => Promise<T>,
+	{
+		maxRetries = config.maxRetries,
+		timeout = config.timeout,
+		timeoutAfterError = config.timeoutAfterError,
+		discardTimeoutedAttempts = config.discardTimeoutedAttempts,
+		onAttempt = config.onAttempt,
+		onError = config.onError,
+		onTimeout = config.onTimeout,
+		onRetry = config.onRetry
+	}: TOptions = config
+): Promise<T> {
+	checkParam('MaxRetries', maxRetries, 0);
+	checkTimeout(timeout);
+	checkTimeoutAfterError(timeoutAfterError);
 
 	let ready = false;
 
 	let onRejected = (
 		err: any,
-		leftRetries: number,
-		retry: (err: any, leftRetries: number) => Promise<T>
+		remainingRetries: number,
+		retry: (err: any, remainingRetries: number) => Promise<T>
 	) => {
-		let timeoutAfterError_ = timeoutAfterError;
+		let timeoutAfterError_: number;
 
 		if (err instanceof AttemptTimeoutError) {
-			if (onTimeout) {
-				onTimeout();
-			}
+			timeoutAfterError_ = 0;
+			onTimeout?.();
 		} else {
 			if (onError) {
-				timeoutAfterError_ = onError(err, maxRetries - leftRetries)!;
+				timeoutAfterError_ = onError(err, maxRetries - remainingRetries)!;
 
 				if (timeoutAfterError_ === undefined) {
 					timeoutAfterError_ = timeoutAfterError;
 				} else {
 					checkTimeoutAfterError(timeoutAfterError_);
 				}
+			} else {
+				timeoutAfterError_ = timeoutAfterError;
 			}
 		}
 
-		if (leftRetries != 0) {
-			return timeoutAfterError_ != 0
-				? delay(timeoutAfterError_).then<any>(() =>
-						ready ? undefined : retry(err, leftRetries - 1)
-				  )
-				: retry(err, leftRetries - 1);
+		if (remainingRetries != 0) {
+			if (timeoutAfterError_ == 0) {
+				return retry(err, remainingRetries - 1);
+			}
+
+			return delay(timeoutAfterError_).then<any>(() => ready || retry(err, remainingRetries - 1));
 		}
 
 		ready = true;
@@ -98,27 +81,24 @@ export function attempt<T>(fn: () => Promise<T>, options?: TOptions): Promise<T>
 	};
 
 	if (timeout == -1 && !onAttempt) {
-		return (function tryIt(err: any, leftRetries): Promise<T> {
-			if (onRetry && err !== null) {
-				onRetry(err, leftRetries);
+		return (function tryIt(err: any, remainingRetries): Promise<T> {
+			if (err !== null) {
+				onRetry?.(err, remainingRetries);
 			}
 
-			return fn().catch((err) => onRejected(err, leftRetries, tryIt));
+			return fn().catch((err) => onRejected(err, remainingRetries, tryIt));
 		})(null, maxRetries);
 	}
 
-	return (function tryIt(err: any, leftRetries): Promise<T> {
-		let completed = false;
-		let timeouted = false;
-
-		if (onRetry && err !== null) {
-			onRetry(err, leftRetries);
+	return (function tryIt(err: any, remainingRetries): Promise<T> {
+		if (err !== null) {
+			onRetry?.(err, remainingRetries);
 		}
 
 		let timeout_: number;
 
 		if (onAttempt) {
-			timeout_ = onAttempt(maxRetries - leftRetries + 1)!;
+			timeout_ = onAttempt(maxRetries - remainingRetries + 1)!;
 
 			if (timeout_ === undefined) {
 				timeout_ = timeout;
@@ -128,6 +108,9 @@ export function attempt<T>(fn: () => Promise<T>, options?: TOptions): Promise<T>
 		} else {
 			timeout_ = timeout;
 		}
+
+		let completed = false;
+		let timeouted = false;
 
 		let promise = fn().then(
 			(result) => {
@@ -156,30 +139,29 @@ export function attempt<T>(fn: () => Promise<T>, options?: TOptions): Promise<T>
 					return endlessPromise;
 				}
 
-				return onRejected(err, leftRetries, tryIt).then(identity, throwIt);
+				return onRejected(err, remainingRetries, tryIt);
 			}
 		);
 
-		return timeout_ == -1
-			? promise
-			: Promise.race<T>([
-					promise,
-					delay(timeout_).then(() => {
-						if (ready) {
-							return;
-						}
+		if (timeout_ == -1) {
+			return promise;
+		}
 
-						timeouted = true;
+		return Promise.race<T>([
+			promise,
+			delay(timeout_).then(() => {
+				if (ready) {
+					return;
+				}
 
-						if (completed) {
-							return endlessPromise;
-						}
+				timeouted = true;
 
-						return onRejected(new AttemptTimeoutError(), leftRetries, tryIt).then(
-							identity,
-							throwIt
-						);
-					})
-			  ]);
+				if (completed) {
+					return endlessPromise;
+				}
+
+				return onRejected(new AttemptTimeoutError(), remainingRetries, tryIt);
+			})
+		]);
 	})(null, maxRetries);
 }

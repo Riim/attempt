@@ -2,25 +2,38 @@
   "name": "@riim/attempt",
   "version": "1.2.1",
   "description": "",
-  "type": "commonjs",
-  "main": "dist/attempt.js",
-  "typings": "dist/attempt.d.ts",
-  "scripts": {
-    "build": "rm -rf dist && tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "homepage": "https://github.com/Riim/attempt#readme",
+  "bugs": {
+    "url": "https://github.com/Riim/attempt/issues"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Riim/attempt.git"
   },
-  "author": "Dmitry Vibe",
   "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/Riim/attempt/issues"
+  "author": "Dmitry Vibe",
+  "type": "commonjs",
+  "main": "dist/attempt.js",
+  "typings": "dist/attempt.d.ts",
+  "scripts": {
+    "build": "rm -rf dist && npx tsc && rolldown -c && babel dist --out-dir dist",
+    "test": "rm -rf coverage && jest --coverage"
   },
-  "homepage": "https://github.com/Riim/attempt#readme",
+  "devDependencies": {
+    "@babel/cli": "7.28.6",
+    "@babel/core": "7.29.0",
+    "@babel/plugin-transform-block-scoping": "7.28.6",
+    "@eslint/js": "9.39.3",
+    "@trivago/prettier-plugin-sort-imports": "6.0.2",
+    "@typescript-eslint/parser": "8.56.1",
+    "eslint": "9.39.3",
+    "eslint-plugin-github": "6.0.0",
+    "globals": "17.3.0",
+    "rolldown": "1.0.0-rc.6",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.56.1"
+  },
   "dependencies": {
-    "@riim/delay": "1.1.0",
-    "@riim/duration": "1.0.0"
+    "@riim/delay": "1.1.0"
   }
 }

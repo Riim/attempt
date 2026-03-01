@@ -1,4 +1,4 @@
-# Attempt
+# @riim/attempt
 
 ## Installation
 

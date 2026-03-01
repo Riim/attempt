@@ -1,144 +1,132 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.attempt = exports.series = exports.configure = exports.config = exports.AttemptTimeoutError = void 0;
-const delay_1 = require("@riim/delay");
-const config_1 = require("./config");
-Object.defineProperty(exports, "config", { enumerable: true, get: function () { return config_1.config; } });
-Object.defineProperty(exports, "configure", { enumerable: true, get: function () { return config_1.configure; } });
-const AttemptTimeoutError_1 = require("./lib/AttemptTimeoutError");
-Object.defineProperty(exports, "AttemptTimeoutError", { enumerable: true, get: function () { return AttemptTimeoutError_1.AttemptTimeoutError; } });
-const endlessPromise_1 = require("./lib/endlessPromise");
-const identity_1 = require("./lib/identity");
-const throwIt_1 = require("./lib/throwIt");
-var series_1 = require("./series");
-Object.defineProperty(exports, "series", { enumerable: true, get: function () { return series_1.series; } });
-const checkTimeoutAfterError = (timeoutAfterError) => {
-    if (!Number.isInteger(timeoutAfterError)) {
-        throw TypeError('Timeout after error must be integer');
-    }
-    if (timeoutAfterError < 0) {
-        throw TypeError('Timeout after error must be greater than or equal to 0');
-    }
+Object.defineProperty(exports, Symbol.toStringTag, {
+  value: 'Module'
+});
+var _riim_delay = require("@riim/delay");
+
+//#region src/config.ts
+var config = {
+  maxRetries: 0,
+  timeout: -1,
+  timeoutAfterError: 0,
+  discardTimeoutedAttempts: false,
+  onAttempt: null,
+  onError: null,
+  onTimeout: null,
+  onRetry: null
 };
-const checkTimeout = (timeout) => {
-    if (!Number.isInteger(timeout)) {
-        throw TypeError('Timeout of attempt must be integer');
-    }
-    if (timeout < -1) {
-        throw TypeError('Timeout of attempt must be greater than or equal to -1');
-    }
-};
-function attempt(fn, options) {
-    var _a, _b, _c, _d, _e, _f, _g, _h;
-    let maxRetries = (_a = options === null || options === void 0 ? void 0 : options.maxRetries) !== null && _a !== void 0 ? _a : config_1.config.maxRetries;
-    if (!Number.isInteger(maxRetries)) {
-        throw TypeError('Maximum number of retries must be integer');
-    }
-    if (maxRetries < 0) {
-        throw TypeError('Maximum number of retries must be greater than or equal to 0');
-    }
-    let timeout = (_b = options === null || options === void 0 ? void 0 : options.timeout) !== null && _b !== void 0 ? _b : config_1.config.timeout;
-    if (timeout !== undefined) {
-        checkTimeout(timeout);
-    }
-    let timeoutAfterError = (_c = options === null || options === void 0 ? void 0 : options.timeoutAfterError) !== null && _c !== void 0 ? _c : config_1.config.timeoutAfterError;
-    if (timeoutAfterError !== undefined) {
-        checkTimeoutAfterError(timeoutAfterError);
-    }
-    let discardTimeoutedAttempts = (_d = options === null || options === void 0 ? void 0 : options.discardTimeoutedAttempts) !== null && _d !== void 0 ? _d : config_1.config.discardTimeoutedAttempts;
-    let onAttempt = (_e = options === null || options === void 0 ? void 0 : options.onAttempt) !== null && _e !== void 0 ? _e : config_1.config.onAttempt;
-    let onError = (_f = options === null || options === void 0 ? void 0 : options.onError) !== null && _f !== void 0 ? _f : config_1.config.onError;
-    let onTimeout = (_g = options === null || options === void 0 ? void 0 : options.onTimeout) !== null && _g !== void 0 ? _g : config_1.config.onTimeout;
-    let onRetry = (_h = options === null || options === void 0 ? void 0 : options.onRetry) !== null && _h !== void 0 ? _h : config_1.config.onRetry;
-    let ready = false;
-    let onRejected = (err, leftRetries, retry) => {
-        let timeoutAfterError_ = timeoutAfterError;
-        if (err instanceof AttemptTimeoutError_1.AttemptTimeoutError) {
-            if (onTimeout) {
-                onTimeout();
-            }
-        }
-        else {
-            if (onError) {
-                timeoutAfterError_ = onError(err, maxRetries - leftRetries);
-                if (timeoutAfterError_ === undefined) {
-                    timeoutAfterError_ = timeoutAfterError;
-                }
-                else {
-                    checkTimeoutAfterError(timeoutAfterError_);
-                }
-            }
-        }
-        if (leftRetries != 0) {
-            return timeoutAfterError_ != 0
-                ? (0, delay_1.delay)(timeoutAfterError_).then(() => ready ? undefined : retry(err, leftRetries - 1))
-                : retry(err, leftRetries - 1);
-        }
-        ready = true;
-        throw err;
-    };
-    if (timeout == -1 && !onAttempt) {
-        return (function tryIt(err, leftRetries) {
-            if (onRetry && err !== null) {
-                onRetry(err, leftRetries);
-            }
-            return fn().catch((err) => onRejected(err, leftRetries, tryIt));
-        })(null, maxRetries);
-    }
-    return (function tryIt(err, leftRetries) {
-        let completed = false;
-        let timeouted = false;
-        if (onRetry && err !== null) {
-            onRetry(err, leftRetries);
-        }
-        let timeout_;
-        if (onAttempt) {
-            timeout_ = onAttempt(maxRetries - leftRetries + 1);
-            if (timeout_ === undefined) {
-                timeout_ = timeout;
-            }
-            else {
-                checkTimeout(timeout_);
-            }
-        }
-        else {
-            timeout_ = timeout;
-        }
-        let promise = fn().then((result) => {
-            if (ready) {
-                return;
-            }
-            completed = true;
-            if (timeouted && discardTimeoutedAttempts) {
-                return endlessPromise_1.endlessPromise;
-            }
-            ready = true;
-            return result;
-        }, (err) => {
-            if (ready) {
-                return;
-            }
-            completed = true;
-            if (timeouted) {
-                return endlessPromise_1.endlessPromise;
-            }
-            return onRejected(err, leftRetries, tryIt).then(identity_1.identity, throwIt_1.throwIt);
-        });
-        return timeout_ == -1
-            ? promise
-            : Promise.race([
-                promise,
-                (0, delay_1.delay)(timeout_).then(() => {
-                    if (ready) {
-                        return;
-                    }
-                    timeouted = true;
-                    if (completed) {
-                        return endlessPromise_1.endlessPromise;
-                    }
-                    return onRejected(new AttemptTimeoutError_1.AttemptTimeoutError(), leftRetries, tryIt).then(identity_1.identity, throwIt_1.throwIt);
-                })
-            ]);
-    })(null, maxRetries);
+function configure(options) {
+  Object.assign(config, options);
+  return config;
 }
+
+//#endregion
+//#region src/lib/AttemptTimeoutError.ts
+var AttemptTimeoutError = class extends Error {};
+
+//#endregion
+//#region src/lib/endlessPromise.ts
+var endlessPromise = new Promise(() => {});
+
+//#endregion
+//#region src/series.ts
+function series(series, options) {
+  var onAttempt = options?.onAttempt ?? config.onAttempt;
+  var onError = options?.onError ?? config.onError;
+  var idx = -1;
+  return attempt(() => series[idx][0](), {
+    ...options,
+    maxRetries: series.length - 1,
+    onAttempt: attemptNumber => {
+      var timeout = onAttempt?.(attemptNumber);
+      return series[++idx][1] ?? timeout;
+    },
+    onError: (err, retryNumber) => {
+      var timeoutAfterError = onError?.(err, retryNumber);
+      return series[idx][2] ?? timeoutAfterError;
+    }
+  });
+}
+
+//#endregion
+//#region src/attempt.ts
+function checkParam(name, value, minValue) {
+  if (!Number.isInteger(value)) throw TypeError(`${name} must be integer`);
+  if (value < minValue) throw TypeError(`${name} must be greater than or equal to ${minValue}`);
+}
+function checkTimeout(timeout) {
+  checkParam("Timeout", timeout, -1);
+}
+function checkTimeoutAfterError(timeoutAfterError) {
+  checkParam("TimeoutAfterError", timeoutAfterError, 0);
+}
+function attempt(fn, {
+  maxRetries = config.maxRetries,
+  timeout = config.timeout,
+  timeoutAfterError = config.timeoutAfterError,
+  discardTimeoutedAttempts = config.discardTimeoutedAttempts,
+  onAttempt = config.onAttempt,
+  onError = config.onError,
+  onTimeout = config.onTimeout,
+  onRetry = config.onRetry
+} = config) {
+  checkParam("MaxRetries", maxRetries, 0);
+  checkTimeout(timeout);
+  checkTimeoutAfterError(timeoutAfterError);
+  var ready = false;
+  var onRejected = (err, remainingRetries, retry) => {
+    var timeoutAfterError_;
+    if (err instanceof AttemptTimeoutError) {
+      timeoutAfterError_ = 0;
+      onTimeout?.();
+    } else if (onError) {
+      timeoutAfterError_ = onError(err, maxRetries - remainingRetries);
+      if (timeoutAfterError_ === void 0) timeoutAfterError_ = timeoutAfterError;else checkTimeoutAfterError(timeoutAfterError_);
+    } else timeoutAfterError_ = timeoutAfterError;
+    if (remainingRetries != 0) {
+      if (timeoutAfterError_ == 0) return retry(err, remainingRetries - 1);
+      return (0, _riim_delay.delay)(timeoutAfterError_).then(() => ready || retry(err, remainingRetries - 1));
+    }
+    ready = true;
+    throw err;
+  };
+  if (timeout == -1 && !onAttempt) return function tryIt(err, remainingRetries) {
+    if (err !== null) onRetry?.(err, remainingRetries);
+    return fn().catch(err => onRejected(err, remainingRetries, tryIt));
+  }(null, maxRetries);
+  return function tryIt(err, remainingRetries) {
+    if (err !== null) onRetry?.(err, remainingRetries);
+    var timeout_;
+    if (onAttempt) {
+      timeout_ = onAttempt(maxRetries - remainingRetries + 1);
+      if (timeout_ === void 0) timeout_ = timeout;else checkTimeout(timeout_);
+    } else timeout_ = timeout;
+    var completed = false;
+    var timeouted = false;
+    var promise = fn().then(result => {
+      if (ready) return;
+      completed = true;
+      if (timeouted && discardTimeoutedAttempts) return endlessPromise;
+      ready = true;
+      return result;
+    }, err => {
+      if (ready) return;
+      completed = true;
+      if (timeouted) return endlessPromise;
+      return onRejected(err, remainingRetries, tryIt);
+    });
+    if (timeout_ == -1) return promise;
+    return Promise.race([promise, (0, _riim_delay.delay)(timeout_).then(() => {
+      if (ready) return;
+      timeouted = true;
+      if (completed) return endlessPromise;
+      return onRejected(new AttemptTimeoutError(), remainingRetries, tryIt);
+    })]);
+  }(null, maxRetries);
+}
+
+//#endregion
+exports.AttemptTimeoutError = AttemptTimeoutError;
 exports.attempt = attempt;
+exports.config = config;
+exports.configure = configure;
+exports.series = series;

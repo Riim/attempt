@@ -8,7 +8,7 @@ export declare const config: {
     onTimeout: (() => void) | null;
     onRetry: ((err: any, leftRetries: number) => void) | null;
 };
-export declare type TOptions = Partial<typeof config>;
+export type TOptions = Partial<typeof config>;
 export declare function configure(options: TOptions): {
     maxRetries: number;
     timeout: number;
